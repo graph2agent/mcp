@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  source-hygiene:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out MCP server
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check whitespace
+        run: git diff --check
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GRAPH2AGENT_READ_TOKEN: ${{ secrets.GRAPH2AGENT_READ_TOKEN }}
+    steps:
+      - name: Check out MCP server
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Explain private dependency setup
+        if: env.GRAPH2AGENT_READ_TOKEN == ''
+        run: echo 'GRAPH2AGENT_READ_TOKEN is required until the core module is public; source-hygiene still runs.'
+
+      - name: Check out pinned graph2agent core
+        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: graph2agent/graph2agent
+          ref: v0.1.0
+          path: .deps/graph2agent
+          token: ${{ secrets.GRAPH2AGENT_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Create local dependency workspace
+        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        run: |
+          go work init .
+          go work edit -replace=github.com/graph2agent/graph2agent@v0.1.0=./.deps/graph2agent
+
+      - name: Verify
+        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        run: make check test-race

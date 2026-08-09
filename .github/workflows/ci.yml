@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,27 +26,18 @@ jobs:
         run: git diff --check
 
   test:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      GRAPH2AGENT_READ_TOKEN: ${{ secrets.GRAPH2AGENT_READ_TOKEN }}
     steps:
       - name: Check out MCP server
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Go
-        if: env.GRAPH2AGENT_READ_TOKEN != ''
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Explain private dependency setup
-        if: env.GRAPH2AGENT_READ_TOKEN == ''
-        run: echo 'GRAPH2AGENT_READ_TOKEN is required until the core module is public; source-hygiene still runs.'
+          persist-credentials: false
 
       - name: Check out pinned graph2agent core
-        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        id: core_checkout
+        continue-on-error: true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: graph2agent/graph2agent
@@ -54,12 +46,32 @@ jobs:
           token: ${{ secrets.GRAPH2AGENT_READ_TOKEN }}
           persist-credentials: false
 
+      - name: Fail closed if graph2agent core checkout failed
+        if: always() && steps.core_checkout.outcome != 'success'
+        shell: bash
+        run: |
+          {
+            echo '## Private core checkout failed'
+            echo
+            echo 'The pinned `graph2agent/graph2agent@v0.1.0` dependency could not be checked out.'
+            echo 'Confirm that `GRAPH2AGENT_READ_TOKEN` exists and has read-only access to the private core repository.'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo '::error title=Private core checkout failed::Unable to check out graph2agent/graph2agent@v0.1.0. Verify the read-only GRAPH2AGENT_READ_TOKEN secret.'
+          exit 1
+
+      - name: Set up Go
+        if: success() && steps.core_checkout.outcome == 'success'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
       - name: Create local dependency workspace
-        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        if: success() && steps.core_checkout.outcome == 'success'
         run: |
           go work init .
           go work edit -replace=github.com/graph2agent/graph2agent@v0.1.0=./.deps/graph2agent
 
       - name: Verify
-        if: env.GRAPH2AGENT_READ_TOKEN != ''
+        if: success() && steps.core_checkout.outcome == 'success'
         run: make check test-race

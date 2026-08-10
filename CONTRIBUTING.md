@@ -1,14 +1,15 @@
 # Contributing
 
-This is a private, all-rights-reserved repository. Contributions are accepted
-only from authorized Graph2Agent collaborators.
+Contributions are welcome under the terms of the Apache License 2.0.
 
 ## Development
 
-The module depends on the private `github.com/graph2agent/graph2agent` module at
-the version declared in `go.mod`. During coordinated development, use an
-untracked `go.work` file with a version-specific `go work edit -replace` to
-select a local core checkout; do not commit a `replace` directive to `go.mod`.
+The module depends on `github.com/graph2agent/graph2agent` at the version
+declared in `go.mod`. During the coordinated pre-public launch, access to that
+module requires a private-fork or repository credential. For local development,
+use an untracked `go.work` file with a version-specific `go work edit -replace`
+to select a local core checkout; do not commit a `replace` directive to
+`go.mod`.
 
 Before opening a pull request, run:
 
@@ -21,5 +22,4 @@ protocol-level tests, documentation, and an explicit compatibility decision.
 Never write logs to stdout because stdout is reserved for MCP messages.
 
 By submitting a contribution, you confirm that you have the right to submit it
-and grant Graph2Agent the right to use, modify, and distribute it as part of
-this proprietary project.
+under the repository's [Apache License 2.0](LICENSE).

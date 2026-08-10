@@ -2,7 +2,7 @@
   "name": "graph2agent-mcp-darwin-arm64",
   "version": "0.2.0",
   "description": "graph2agent MCP native binary for macOS arm64",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "repository": { "type": "git", "url": "git+https://github.com/graph2agent/mcp.git" },
   "os": ["darwin"],
   "cpu": ["arm64"],

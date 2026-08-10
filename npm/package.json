@@ -2,7 +2,7 @@
   "name": "graph2agent-mcp",
   "version": "0.2.0",
   "description": "Plug-and-play MCP server that makes Mermaid diagrams explicit for coding agents",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/graph2agent/mcp.git"

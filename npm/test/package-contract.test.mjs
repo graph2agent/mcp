@@ -10,7 +10,7 @@ const root = JSON.parse(await readFile(path.join(npmRoot, "package.json"), "utf8
 test("umbrella package is publish-safe and has exact optional versions", () => {
   assert.equal(root.name, "graph2agent-mcp");
   assert.equal(root.version, "0.2.0");
-  assert.equal(root.license, "UNLICENSED");
+  assert.equal(root.license, "Apache-2.0");
   assert.equal(root.engines.node, ">=22");
   assert.equal(root.bin["graph2agent-mcp"], "bin/graph2agent-mcp.cjs");
   assert.equal(root.mcpName, "io.github.graph2agent/mcp");
@@ -30,7 +30,7 @@ test("platform manifests are restricted and contain no lifecycle scripts", async
     const manifest = JSON.parse(await readFile(path.join(npmRoot, "platform", directory, "package.json"), "utf8"));
     assert.equal(manifest.version, root.version);
     assert.equal(root.optionalDependencies[manifest.name], root.version);
-    assert.equal(manifest.license, "UNLICENSED");
+    assert.equal(manifest.license, "Apache-2.0");
     assert.equal(manifest.scripts, undefined);
     assert.equal(manifest.os.length, 1);
     assert.equal(manifest.cpu.length, 1);

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/graph2agent/graph2agent/main/.github/assets/favicon.svg" alt="graph2agent app icon" width="128" height="128">
+</p>
+
 # Give any MCP coding agent the graph—in one command
 
 ```sh
@@ -36,3 +40,5 @@ codex mcp add graph2agent -- graph2agent-mcp
 Supported platforms are macOS, Linux, and Windows on arm64 and x64. The server
 supports graph2agent's deliberate flowchart, sequence, class, state, and ER
 subset; unsupported semantics fail closed in strict mode.
+
+Licensed under the [Apache License 2.0](LICENSE).

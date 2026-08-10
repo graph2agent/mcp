@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/graph2agent/graph2agent/main/.github/assets/favicon.svg" alt="graph2agent app icon" width="128" height="128">
+</p>
+
 # Give any MCP coding agent the graph—in one command
 
 ```sh
@@ -19,9 +23,9 @@ The benchmark tested the frozen `standard` digest in one requested Codex
 configuration. It does not establish the same effect for every model, task,
 profile, or Mermaid construct.
 
-> The npm packages are fully assembled and smoke-tested but not public yet.
-> Activation requires the public license decision and npm trusted-publisher
-> setup; the command above is the pinned post-launch configuration.
+> The Apache-2.0 npm packages are fully assembled and smoke-tested but not
+> public yet. The command above becomes live after intentional npm publication
+> through the configured trusted publisher.
 
 The server performs no network requests, file writes, Mermaid execution, or HTML
 rendering. Every call is parsed in strict mode with `core-contract-v2` and the
@@ -86,7 +90,9 @@ and SHA-256 before every start.
 Requirements:
 
 - Go 1.25 or newer (required by the MCP Go SDK v1.7.0);
-- read access to the private `github.com/graph2agent/graph2agent` module.
+- read access to `github.com/graph2agent/graph2agent` (a repository-specific
+  read-only deploy key is required only while the coordinated core launch is
+  still private).
 
 ```sh
 make check
@@ -145,16 +151,13 @@ file locations and approval controls are client-specific.
 
 ## CI and releases
 
-CI checks formatting, vetting, tests, race tests, and a production build. Because
-the core repository is private, give this repository a unique, read-only SSH
-deploy key. Add its public key to `graph2agent/graph2agent` with write access
-disabled, and store only the matching private key here as the Actions secret
-`GRAPH2AGENT_DEPLOY_KEY`. Do not reuse the key in another consumer repository.
-CI checks out the exact `v0.1.0` core tag and wires it through an ephemeral,
-ignored Go workspace replacement; the published module remains pinned in
-`go.mod` without a `replace` directive. Pull requests run only secret-free
-source hygiene, while trusted main-branch and manual verification fail closed
-when the private checkout cannot be verified.
+CI checks formatting, vetting, tests, race tests, and a production build. Until
+the core repository becomes public, trusted-branch verification checks out the
+exact `v0.1.0` core tag using a unique, read-only `GRAPH2AGENT_DEPLOY_KEY`, then
+wires it through an ephemeral, ignored Go workspace replacement. The published
+module remains pinned in `go.mod` without a `replace` directive. Pull requests
+remain secret-free. This private-launch boundary is removed in favor of a
+credential-free public checkout immediately after core visibility changes.
 
 GoReleaser builds static macOS, Linux, and Windows archives for amd64 and arm64,
 injects the release version into MCP server metadata, and emits a checksum file.
@@ -165,4 +168,4 @@ performs a real MCP initialize/tools/list/describe_mermaid smoke test.
 
 ## License
 
-Copyright 2026 Graph2Agent. All rights reserved. See [LICENSE](LICENSE).
+Licensed under the [Apache License 2.0](LICENSE).

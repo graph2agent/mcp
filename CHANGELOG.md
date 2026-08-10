@@ -6,11 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Document the live macOS and Linux npm path and the direct-release Windows
+  fallback while Windows npm package names await review.
+
 ## [0.2.0] - 2026-08-10
 
 ### Added
 
-- Publish a no-install-script `graph2agent-mcp` npm launcher with exact,
+- Add a no-install-script `graph2agent-mcp` npm launcher with exact,
   platform-restricted native binary packages for macOS, Linux, and Windows on
   arm64 and x64.
 - Verify the selected native binary's package version and SHA-256 before every

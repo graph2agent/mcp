@@ -24,21 +24,29 @@ The benchmark tested the frozen `standard` digest in one requested Codex
 configuration; it does not establish the same effect for every model, task,
 profile, or Mermaid construct.
 
+> **Live on npm for macOS and Linux.** With Node.js 22 or newer, this package
+> installs the matching arm64 or x64 binary. Windows binaries are live in the
+> [v0.2.0 GitHub Release](https://github.com/graph2agent/mcp/releases/tag/v0.2.0);
+> one-command npm activation on Windows is pending npm review.
+
 Persistent client configurations should pin the version:
 
 ```sh
 codex mcp add graph2agent -- npx -y graph2agent-mcp@0.2.0
 ```
 
-First use needs npm access. For a durable local/offline installation afterward:
+On macOS and Linux, first use needs npm access. For a durable local/offline
+installation afterward:
 
 ```sh
 npm install --global graph2agent-mcp@0.2.0
 codex mcp add graph2agent -- graph2agent-mcp
 ```
 
-Supported platforms are macOS, Linux, and Windows on arm64 and x64. The server
-supports graph2agent's deliberate flowchart, sequence, class, state, and ER
-subset; unsupported semantics fail closed in strict mode.
+Native binaries support macOS, Linux, and Windows on arm64 and x64. Until the
+Windows npm packages are activated, install Windows directly from the GitHub
+Release linked above. The server supports graph2agent's deliberate flowchart,
+sequence, class, state, and ER subset; unsupported semantics fail closed in
+strict mode.
 
 Licensed under the [Apache License 2.0](LICENSE).

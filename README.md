@@ -23,9 +23,11 @@ The benchmark tested the frozen `standard` digest in one requested Codex
 configuration. It does not establish the same effect for every model, task,
 profile, or Mermaid construct.
 
-> The Apache-2.0 npm packages are fully assembled and smoke-tested but not
-> public yet. The command above becomes live after intentional npm publication
-> through the configured trusted publisher.
+> **Live on npm for macOS and Linux.** With Node.js 22 or newer, the pinned
+> command above installs the matching arm64 or x64 static binary without
+> lifecycle scripts or a Go toolchain. Windows binaries are live in the
+> [v0.2.0 GitHub Release](https://github.com/graph2agent/mcp/releases/tag/v0.2.0);
+> one-command npm activation on Windows is pending npm review.
 
 The server performs no network requests, file writes, Mermaid execution, or HTML
 rendering. Every call is parsed in strict mode with `core-contract-v2` and the
@@ -73,8 +75,10 @@ codex mcp add graph2agent -- npx -y graph2agent-mcp@0.2.0
 claude mcp add --scope user --transport stdio graph2agent -- npx -y graph2agent-mcp@0.2.0
 ```
 
-On native Windows, put `cmd /c` before `npx`. First use needs npm access. For a
-durable local installation that works offline afterward:
+On native Windows, use the direct-binary configuration below until npm
+activation is announced; afterward, put `cmd /c` before `npx`. On macOS and
+Linux, first use needs npm access. For a durable local installation that works
+offline afterward:
 
 ```sh
 npm install --global graph2agent-mcp@0.2.0

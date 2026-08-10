@@ -37,3 +37,16 @@ test("platform manifests are restricted and contain no lifecycle scripts", async
     assert.deepEqual(manifest.publishConfig, { access: "public" });
   }
 });
+
+test("documentation distinguishes live npm platforms from the Windows release fallback", async () => {
+  const readmes = await Promise.all([
+    readFile(path.resolve(npmRoot, "..", "README.md"), "utf8"),
+    readFile(path.join(npmRoot, "README.md"), "utf8"),
+  ]);
+  for (const readme of readmes) {
+    assert.match(readme, /Live on npm for macOS and Linux/);
+    assert.match(readme, /v0\.2\.0 GitHub Release/);
+    assert.match(readme, /npm activation on Windows is pending npm review/);
+    assert.doesNotMatch(readme, /not public yet|command above becomes live/);
+  }
+});

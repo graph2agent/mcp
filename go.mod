@@ -3,7 +3,7 @@ module github.com/graph2agent/mcp
 go 1.25.0
 
 require (
-	github.com/graph2agent/graph2agent v0.1.0
+	github.com/graph2agent/graph2agent v0.2.0
 	github.com/modelcontextprotocol/go-sdk v1.7.0
 )
 

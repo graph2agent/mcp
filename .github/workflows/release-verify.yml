@@ -26,11 +26,19 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: graph2agent/graph2agent
-          ref: v0.1.0
+          ref: v0.2.0
           path: .deps/graph2agent
-          ssh-key: ${{ secrets.GRAPH2AGENT_DEPLOY_KEY }}
-          ssh-strict: true
           persist-credentials: false
+      - name: Verify pinned graph2agent core revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=67c4c7d44c7a3ad673a41155a7db0e33fb663214
+          actual=$(git -C .deps/graph2agent rev-parse HEAD)
+          if [[ "$actual" != "$expected" ]]; then
+            printf 'graph2agent v0.2.0 resolved to %s; expected %s\n' "$actual" "$expected" >&2
+            exit 1
+          fi
       - name: Assert checkout credentials are absent
         shell: bash
         run: |
@@ -56,7 +64,7 @@ jobs:
           test ! -e go.work
           test ! -e go.work.sum
           go work init .
-          go work edit -replace=github.com/graph2agent/graph2agent@v0.1.0=./.deps/graph2agent
+          go work edit -replace=github.com/graph2agent/graph2agent@v0.2.0=./.deps/graph2agent
       - name: Verify Go server and npm source
         run: make check test-race
       - name: Build six native release targets
@@ -81,7 +89,7 @@ jobs:
           expected=$(node -p 'require(process.argv[1]).version' "$GITHUB_WORKSPACE/dist/metadata.json")
           GRAPH2AGENT_EXPECT_SERVER_VERSION=$expected \
             node "$GITHUB_WORKSPACE/npm/test/stdio-smoke.mjs" "$smoke/node_modules/.bin/graph2agent-mcp"
-      - name: Upload private verification bundle
+      - name: Upload verification bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: graph2agent-mcp-npm-verification-${{ github.sha }}

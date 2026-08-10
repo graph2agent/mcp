@@ -89,10 +89,7 @@ and SHA-256 before every start.
 
 Requirements:
 
-- Go 1.25 or newer (required by the MCP Go SDK v1.7.0);
-- read access to `github.com/graph2agent/graph2agent` (a repository-specific
-  read-only deploy key is required only while the coordinated core launch is
-  still private).
+- Go 1.25 or newer (required by the MCP Go SDK v1.7.0).
 
 ```sh
 make check
@@ -104,7 +101,7 @@ instead of changing `go.mod`:
 
 ```sh
 go work init .
-go work edit -replace=github.com/graph2agent/graph2agent@v0.1.0=../graph2agent
+go work edit -replace=github.com/graph2agent/graph2agent@v0.2.0=../graph2agent
 make check test-race
 ```
 
@@ -151,13 +148,12 @@ file locations and approval controls are client-specific.
 
 ## CI and releases
 
-CI checks formatting, vetting, tests, race tests, and a production build. Until
-the core repository becomes public, trusted-branch verification checks out the
-exact `v0.1.0` core tag using a unique, read-only `GRAPH2AGENT_DEPLOY_KEY`, then
-wires it through an ephemeral, ignored Go workspace replacement. The published
-module remains pinned in `go.mod` without a `replace` directive. Pull requests
-remain secret-free. This private-launch boundary is removed in favor of a
-credential-free public checkout immediately after core visibility changes.
+CI checks formatting, vetting, tests, race tests, and a production build. It
+checks out the public `graph2agent` core at `v0.2.0` without a deploy key or
+repository secret, asserts that the tag resolves to the expected immutable
+commit, and wires it through an ephemeral, ignored Go workspace replacement.
+The published module remains pinned in `go.mod` without a `replace` directive,
+and pull requests run the same secret-free verification.
 
 GoReleaser builds static macOS, Linux, and Windows archives for amd64 and arm64,
 injects the release version into MCP server metadata, and emits a checksum file.

@@ -26,10 +26,7 @@ parsing, fixed semantic compatibility, and bounded input, statement, and object
 counts. MCP clients should still apply their own process isolation and release
 verification policies.
 
-During the coordinated pre-public launch, CI access to the private core uses a
-repository-specific SSH deploy key with write access disabled. Store its
-private half only as this repository's `GRAPH2AGENT_DEPLOY_KEY` Actions secret,
-never reuse it across repositories, and rotate it independently if exposed.
-Pull-request jobs remain secret-free, and the private verification job fails
-closed when checkout of the pinned core tag fails. Remove this temporary key
-boundary as soon as the core repository becomes public.
+CI needs no private credential for the public core repository. It pins the
+release tag and asserts its immutable commit before using it. Credential
+persistence is explicitly disabled, and release verification checks that no
+checkout credentials remain in local Git configuration.

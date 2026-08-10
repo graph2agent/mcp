@@ -94,3 +94,22 @@ test("spawns with inherited protocol streams and propagates arguments", async ()
   assert.equal(observed.options.env, process.env);
   assert.equal(observed.options.windowsHide, true);
 });
+
+test("forwards termination signals to the native server and removes handlers", async () => {
+  const signalSource = new EventEmitter();
+  const child = new EventEmitter();
+  child.killed = false;
+  const forwarded = [];
+  child.kill = (signal) => {
+    forwarded.push(signal);
+    child.killed = true;
+    process.nextTick(() => child.emit("exit", null, signal));
+    return true;
+  };
+  const running = launcher.runBinary("/verified/server", [], () => child, signalSource);
+  signalSource.emit("SIGTERM");
+  assert.deepEqual(await running, { code: null, signal: "SIGTERM" });
+  assert.deepEqual(forwarded, ["SIGTERM"]);
+  assert.equal(signalSource.listenerCount("SIGTERM"), 0);
+  assert.equal(signalSource.listenerCount("SIGINT"), 0);
+});

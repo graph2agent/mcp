@@ -47,3 +47,6 @@ changelog:
 
 release:
   draft: true
+
+snapshot:
+  version_template: 0.0.0-dev.{{ .ShortCommit }}

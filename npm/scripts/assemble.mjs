@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const distDirectory = path.resolve(process.argv[2] || path.join(repositoryRoot, "dist"));
+const mode = process.argv[3] || "snapshot";
 const outputDirectory = path.join(distDirectory, "npm");
 
 const targets = new Map([
@@ -42,10 +43,30 @@ if (binaries.length !== targets.size) {
 }
 
 const rootManifest = JSON.parse(await readFile(path.join(repositoryRoot, "npm/package.json"), "utf8"));
+const metadata = JSON.parse(await readFile(path.join(distDirectory, "metadata.json"), "utf8"));
+if (!/^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$/.test(metadata.version)) {
+  fail(`GoReleaser produced a non-SemVer package version: ${metadata.version}`);
+}
+if (mode === "release") {
+  if (metadata.version !== rootManifest.version) {
+    fail(`release binary ${metadata.version} does not match npm source ${rootManifest.version}`);
+  }
+} else if (mode === "snapshot") {
+  if (!/^0\.0\.0-dev\.[0-9a-f]+$/.test(metadata.version)) {
+    fail(`snapshot version is not isolated from publishable versions: ${metadata.version}`);
+  }
+} else {
+  fail(`mode must be snapshot or release, got ${mode}`);
+}
+
+rootManifest.version = metadata.version;
+for (const packageName of Object.keys(rootManifest.optionalDependencies)) {
+  rootManifest.optionalDependencies[packageName] = metadata.version;
+}
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
 await cp(path.join(repositoryRoot, "npm/bin"), path.join(outputDirectory, "bin"), { recursive: true });
-await copyFile(path.join(repositoryRoot, "npm/package.json"), path.join(outputDirectory, "package.json"));
+await writeFile(path.join(outputDirectory, "package.json"), `${JSON.stringify(rootManifest, null, 2)}\n`);
 await copyFile(path.join(repositoryRoot, "npm/README.md"), path.join(outputDirectory, "README.md"));
 await copyFile(path.join(repositoryRoot, "LICENSE"), path.join(outputDirectory, "LICENSE"));
 await chmod(path.join(outputDirectory, "bin/graph2agent-mcp.cjs"), 0o755);
@@ -71,9 +92,9 @@ for (const artifact of binaries) {
   await chmod(path.join(platformOutput, target.binary), 0o755);
 
   const manifest = JSON.parse(await readFile(path.join(platformOutput, "package.json"), "utf8"));
-  if (manifest.version !== rootManifest.version || manifest.name !== target.packageName) {
-    fail(`${target.packageName} manifest does not match umbrella version ${rootManifest.version}`);
-  }
+  if (manifest.name !== target.packageName) fail(`${target.packageName} source manifest has the wrong name`);
+  manifest.version = rootManifest.version;
+  await writeFile(path.join(platformOutput, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
   checksums[target.packageName] = {
     file: target.binary,
     sha256: await sha256(path.join(platformOutput, target.binary)),

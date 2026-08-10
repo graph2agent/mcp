@@ -76,7 +76,7 @@ async function resolveBinary(options = {}) {
   return binary;
 }
 
-function runBinary(binary, args = process.argv.slice(2), spawnProcess = spawn) {
+function runBinary(binary, args = process.argv.slice(2), spawnProcess = spawn, signalSource = process) {
   return new Promise((resolve, reject) => {
     const child = spawnProcess(binary, args, {
       cwd: process.cwd(),
@@ -84,8 +84,22 @@ function runBinary(binary, args = process.argv.slice(2), spawnProcess = spawn) {
       stdio: "inherit",
       windowsHide: true,
     });
-    child.once("error", reject);
-    child.once("exit", (code, signal) => resolve({ code, signal }));
+    const signals = process.platform === "win32" ? ["SIGINT", "SIGTERM"] : ["SIGHUP", "SIGINT", "SIGTERM"];
+    const handlers = new Map(signals.map((signal) => [signal, () => {
+      if (!child.killed) child.kill(signal);
+    }]));
+    for (const [signal, handler] of handlers) signalSource.on(signal, handler);
+    const cleanup = () => {
+      for (const [signal, handler] of handlers) signalSource.removeListener(signal, handler);
+    };
+    child.once("error", (error) => {
+      cleanup();
+      reject(error);
+    });
+    child.once("exit", (code, signal) => {
+      cleanup();
+      resolve({ code, signal });
+    });
   });
 }
 

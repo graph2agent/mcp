@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { readdir, readFile, stat } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,7 +26,10 @@ async function listFiles(directory, prefix = "") {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const relative = path.join(prefix, entry.name);
     if (entry.isDirectory()) result.push(...await listFiles(path.join(directory, entry.name), relative));
-    else result.push(relative.split(path.sep).join("/"));
+    else {
+      if (!entry.isFile()) throw new Error(`package staging contains a non-regular entry: ${relative}`);
+      result.push(relative.split(path.sep).join("/"));
+    }
   }
   return result.sort();
 }
@@ -59,7 +62,8 @@ for (const [directory, contract] of Object.entries(expected)) {
     JSON.stringify(files) === JSON.stringify(["LICENSE", "README.md", contract.binary, "package.json"].sort()),
     `${directory}: unexpected files: ${files.join(", ")}`,
   );
-  assert((await stat(path.join(location, contract.binary))).isFile(), `${directory}: binary missing`);
+  const binaryDetails = await lstat(path.join(location, contract.binary));
+  assert(binaryDetails.isFile() && !binaryDetails.isSymbolicLink(), `${directory}: binary missing or not regular`);
   const actual = createHash("sha256").update(await readFile(path.join(location, contract.binary))).digest("hex");
   assert(checksums[contract.name]?.file === contract.binary, `${directory}: wrong checksum filename`);
   assert(checksums[contract.name]?.sha256 === actual, `${directory}: checksum mismatch`);

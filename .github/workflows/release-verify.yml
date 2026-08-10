@@ -1,0 +1,89 @@
+name: Verify npm release bundle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-release-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out MCP source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check out pinned graph2agent core
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: graph2agent/graph2agent
+          ref: v0.1.0
+          path: .deps/graph2agent
+          ssh-key: ${{ secrets.GRAPH2AGENT_DEPLOY_KEY }}
+          ssh-strict: true
+          persist-credentials: false
+      - name: Assert checkout credentials are absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          for repository in . .deps/graph2agent; do
+            if git -C "$repository" config --local --name-only --get-regexp \
+              '^(credential\.|http\..*\.extraheader$|core\.sshCommand$)' >/dev/null 2>&1; then
+              printf 'checkout credentials persisted in %s\n' "$repository" >&2
+              exit 2
+            fi
+          done
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Create ephemeral core workspace
+        run: |
+          test ! -e go.work
+          test ! -e go.work.sum
+          go work init .
+          go work edit -replace=github.com/graph2agent/graph2agent@v0.1.0=./.deps/graph2agent
+      - name: Verify Go server and npm source
+        run: make check test-race
+      - name: Build six native release targets
+        uses: goreleaser/goreleaser-action@4c6ab561adb47e50c45ef534e2155934e91c40c1 # v7.2.0
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --snapshot --clean --skip=publish
+      - name: Assemble, verify, and pack npm packages
+        run: make npm-pack
+      - name: Exercise the packed launcher and MCP protocol
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke=$(mktemp -d "${RUNNER_TEMP%/}/graph2agent-npm-smoke.XXXXXX")
+          root_tarball=$(find dist/npm-packages -maxdepth 1 -type f -name 'graph2agent-mcp-[0-9]*.tgz' -print -quit)
+          platform_tarball=$(find dist/npm-packages -maxdepth 1 -type f -name 'graph2agent-mcp-linux-x64-*.tgz' -print -quit)
+          [[ -n "$root_tarball" && -n "$platform_tarball" ]]
+          cd "$smoke"
+          npm init -y >/dev/null
+          npm install --ignore-scripts --omit=optional --no-audit --no-fund "$GITHUB_WORKSPACE/$root_tarball" "$GITHUB_WORKSPACE/$platform_tarball"
+          node "$GITHUB_WORKSPACE/npm/test/stdio-smoke.mjs" "$smoke/node_modules/.bin/graph2agent-mcp"
+      - name: Upload private verification bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: graph2agent-mcp-npm-verification-${{ github.sha }}
+          path: dist/npm-packages
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0

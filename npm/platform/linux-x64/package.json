@@ -1,0 +1,11 @@
+{
+  "name": "graph2agent-mcp-linux-x64",
+  "version": "0.2.0",
+  "description": "graph2agent MCP native binary for Linux x64",
+  "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "git+https://github.com/graph2agent/mcp.git" },
+  "os": ["linux"],
+  "cpu": ["x64"],
+  "files": ["graph2agent-mcp", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" }
+}

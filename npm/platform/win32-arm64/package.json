@@ -1,0 +1,11 @@
+{
+  "name": "graph2agent-mcp-win32-arm64",
+  "version": "0.2.0",
+  "description": "graph2agent MCP native binary for Windows arm64",
+  "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "git+https://github.com/graph2agent/mcp.git" },
+  "os": ["win32"],
+  "cpu": ["arm64"],
+  "files": ["graph2agent-mcp.exe", "README.md", "LICENSE"],
+  "publishConfig": { "access": "public" }
+}

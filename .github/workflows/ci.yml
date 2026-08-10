@@ -43,7 +43,8 @@ jobs:
           repository: graph2agent/graph2agent
           ref: v0.1.0
           path: .deps/graph2agent
-          token: ${{ secrets.GRAPH2AGENT_READ_TOKEN }}
+          ssh-key: ${{ secrets.GRAPH2AGENT_DEPLOY_KEY }}
+          ssh-strict: true
           persist-credentials: false
 
       - name: Fail closed if graph2agent core checkout failed
@@ -54,9 +55,9 @@ jobs:
             echo '## Private core checkout failed'
             echo
             echo 'The pinned `graph2agent/graph2agent@v0.1.0` dependency could not be checked out.'
-            echo 'Confirm that `GRAPH2AGENT_READ_TOKEN` exists and has read-only access to the private core repository.'
+            echo 'Confirm that this repository has a unique `GRAPH2AGENT_DEPLOY_KEY` whose public key has read-only access to the private core repository.'
           } >> "$GITHUB_STEP_SUMMARY"
-          echo '::error title=Private core checkout failed::Unable to check out graph2agent/graph2agent@v0.1.0. Verify the read-only GRAPH2AGENT_READ_TOKEN secret.'
+          echo '::error title=Private core checkout failed::Unable to check out graph2agent/graph2agent@v0.1.0. Verify the read-only GRAPH2AGENT_DEPLOY_KEY secret.'
           exit 1
 
       - name: Set up Go
@@ -69,6 +70,8 @@ jobs:
       - name: Create local dependency workspace
         if: success() && steps.core_checkout.outcome == 'success'
         run: |
+          test ! -e go.work
+          test ! -e go.work.sum
           go work init .
           go work edit -replace=github.com/graph2agent/graph2agent@v0.1.0=./.deps/graph2agent
 

@@ -25,3 +25,10 @@ render HTML, access the network, or write files. It compiles input with strict
 parsing, fixed semantic compatibility, and bounded input, statement, and object
 counts. MCP clients should still apply their own process isolation and release
 verification policies.
+
+CI access to the private core uses a repository-specific SSH deploy key with
+write access disabled. Store its private half only as this repository's
+`GRAPH2AGENT_DEPLOY_KEY` Actions secret, never reuse it across repositories,
+and rotate it independently if exposed. Pull-request jobs must remain
+secret-free, and the private verification job must fail closed when checkout of
+the pinned core tag fails.

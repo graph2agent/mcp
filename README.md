@@ -100,11 +100,15 @@ file locations and approval controls are client-specific.
 ## CI and releases
 
 CI checks formatting, vetting, tests, race tests, and a production build. Because
-the core repository is private, configure an Actions secret named
-`GRAPH2AGENT_READ_TOKEN` with read-only contents access to
-`graph2agent/graph2agent`. CI checks out the exact `v0.1.0` core tag and
-wires it through an ephemeral Go workspace; the published module remains pinned
-in `go.mod` without a `replace` directive.
+the core repository is private, give this repository a unique, read-only SSH
+deploy key. Add its public key to `graph2agent/graph2agent` with write access
+disabled, and store only the matching private key here as the Actions secret
+`GRAPH2AGENT_DEPLOY_KEY`. Do not reuse the key in another consumer repository.
+CI checks out the exact `v0.1.0` core tag and wires it through an ephemeral,
+ignored Go workspace replacement; the published module remains pinned in
+`go.mod` without a `replace` directive. Pull requests run only secret-free
+source hygiene, while trusted main-branch and manual verification fail closed
+when the private checkout cannot be verified.
 
 GoReleaser builds static macOS, Linux, and Windows archives for amd64 and arm64,
 injects the release version into MCP server metadata, and emits a checksum file.

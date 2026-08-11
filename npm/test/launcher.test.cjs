@@ -9,6 +9,7 @@ const test = require("node:test");
 const { EventEmitter } = require("node:events");
 
 const launcher = require("../bin/graph2agent-mcp.cjs");
+const packageVersion = require("../package.json").version;
 
 test("maps every supported platform and architecture", () => {
   const expected = {
@@ -34,7 +35,7 @@ test("resolves and verifies the installed native package", async (t) => {
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
   const platformRoot = path.join(temporary, "node_modules/graph2agent-mcp-linux-x64");
   fs.mkdirSync(platformRoot, { recursive: true });
-  fs.writeFileSync(path.join(platformRoot, "package.json"), JSON.stringify({ name: "graph2agent-mcp-linux-x64", version: "0.2.0" }));
+  fs.writeFileSync(path.join(platformRoot, "package.json"), JSON.stringify({ name: "graph2agent-mcp-linux-x64", version: packageVersion }));
   fs.writeFileSync(path.join(platformRoot, "graph2agent-mcp"), "verified fixture");
   const digest = crypto.createHash("sha256").update("verified fixture").digest("hex");
   const resolvePackage = () => path.join(platformRoot, "package.json");
@@ -42,7 +43,7 @@ test("resolves and verifies the installed native package", async (t) => {
   const binary = await launcher.resolveBinary({
     platform: "linux",
     arch: "x64",
-    rootManifest: { version: "0.2.0" },
+    rootManifest: { version: packageVersion },
     checksums: { "graph2agent-mcp-linux-x64": { file: "graph2agent-mcp", sha256: digest } },
     resolvePackage,
   });
@@ -52,7 +53,7 @@ test("resolves and verifies the installed native package", async (t) => {
     launcher.resolveBinary({
       platform: "linux",
       arch: "x64",
-      rootManifest: { version: "0.2.0" },
+      rootManifest: { version: packageVersion },
       checksums: { "graph2agent-mcp-linux-x64": { file: "graph2agent-mcp", sha256: "0".repeat(64) } },
       resolvePackage,
     }),
@@ -65,7 +66,7 @@ test("reports missing optional platform package", async () => {
     launcher.resolveBinary({
       platform: "linux",
       arch: "x64",
-      rootManifest: { version: "0.2.0" },
+      rootManifest: { version: packageVersion },
       checksums: {},
       resolvePackage: () => {
         const error = new Error("missing");

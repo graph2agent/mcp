@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+env:
+  GRAPH2AGENT_CORE_VERSION: 0.4.0
+  GRAPH2AGENT_CORE_TAG: v0.4.0
+  GRAPH2AGENT_CORE_COMMIT: 8cfebb6c73bfaca6177a584aa6f1019e42c1e1da
+
 concurrency:
   group: npm-release-verify-${{ github.ref }}
   cancel-in-progress: true
@@ -26,17 +31,21 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: graph2agent/graph2agent
-          ref: v0.2.0
+          ref: ${{ env.GRAPH2AGENT_CORE_TAG }}
           path: .deps/graph2agent
           persist-credentials: false
       - name: Verify pinned graph2agent core revision
         shell: bash
         run: |
           set -euo pipefail
-          expected=67c4c7d44c7a3ad673a41155a7db0e33fb663214
+          expected=$GRAPH2AGENT_CORE_COMMIT
+          [[ "$expected" =~ ^[0-9a-f]{40}$ ]] || {
+            printf 'replace GRAPH2AGENT_CORE_COMMIT with the exact %s commit before merging\n' "$GRAPH2AGENT_CORE_TAG" >&2
+            exit 1
+          }
           actual=$(git -C .deps/graph2agent rev-parse HEAD)
           if [[ "$actual" != "$expected" ]]; then
-            printf 'graph2agent v0.2.0 resolved to %s; expected %s\n' "$actual" "$expected" >&2
+            printf 'graph2agent %s resolved to %s; expected %s\n' "$GRAPH2AGENT_CORE_TAG" "$actual" "$expected" >&2
             exit 1
           fi
       - name: Assert checkout credentials are absent
@@ -64,7 +73,7 @@ jobs:
           test ! -e go.work
           test ! -e go.work.sum
           go work init .
-          go work edit -replace=github.com/graph2agent/graph2agent@v0.2.0=./.deps/graph2agent
+          go work edit -replace=github.com/graph2agent/graph2agent@v${GRAPH2AGENT_CORE_VERSION}=./.deps/graph2agent
       - name: Verify Go server and npm source
         run: make check test-race
       - name: Build six native release targets

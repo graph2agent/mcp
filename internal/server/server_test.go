@@ -15,6 +15,12 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+func TestSourceVersionMatchesCompilerVersion(t *testing.T) {
+	if Version != graph2agent.Version {
+		t.Fatalf("source MCP version %q does not match graph2agent compiler version %q", Version, graph2agent.Version)
+	}
+}
+
 func TestListToolsAdvertisesSingleStrictReadOnlyTool(t *testing.T) {
 	client := connectTestClient(t)
 	initialized := client.InitializeResult()

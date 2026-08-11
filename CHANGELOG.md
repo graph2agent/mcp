@@ -6,8 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-11
+
 ### Changed
 
+- Align the MCP server, npm launcher, six native platform packages, release
+  verification, and documentation on version 0.4.0.
+- Upgrade the compiler dependency to graph2agent core v0.4.0, including
+  isolated Markdown compile-failure handling and expanded strict Mermaid
+  compatibility in the shared compiler.
+- Add deterministic CLI-to-MCP release parity for all five supported Mermaid
+  families and a coordinated GitHub/npm/Homebrew publication workflow with
+  provenance, artifact attestations, and idempotent retry checks.
 - Document the live macOS and Linux npm path and the direct-release Windows
   fallback while Windows npm package names await review.
 

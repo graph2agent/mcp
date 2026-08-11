@@ -1,7 +1,7 @@
 GO ?= go
 BINARY ?= bin/graph2agent-mcp
 
-.PHONY: build check fmt fmt-check test test-race vet npm-test npm-assemble npm-pack npm-verify
+.PHONY: build check fmt fmt-check test test-race vet npm-test npm-assemble npm-pack npm-pack-release npm-verify
 
 build:
 	$(GO) build -trimpath -o $(BINARY) ./cmd/graph2agent-mcp
@@ -33,6 +33,11 @@ npm-assemble:
 	node npm/scripts/assemble.mjs dist
 
 npm-pack: npm-assemble
+	node npm/scripts/verify-packages.mjs dist/npm
+	node npm/scripts/pack.mjs dist/npm dist/npm-packages
+
+npm-pack-release:
+	node npm/scripts/assemble.mjs dist release
 	node npm/scripts/verify-packages.mjs dist/npm
 	node npm/scripts/pack.mjs dist/npm dist/npm-packages
 

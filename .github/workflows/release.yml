@@ -1,0 +1,452 @@
+name: Publish coordinated MCP release
+
+on:
+  repository_dispatch:
+    types: [graph2agent-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact coordinated SemVer tag, including the leading v.
+        required: true
+        type: string
+      core-commit:
+        description: Exact graph2agent core release commit.
+        required: true
+        type: string
+      action-commit:
+        description: Exact graph2agent GitHub Action release commit.
+        required: true
+        type: string
+      source-sha256:
+        description: SHA-256 of the immutable core source archive.
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: coordinated-mcp-${{ github.event.client_payload.version || inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'graph2agent/mcp' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RELEASE_VERSION: ${{ github.event.client_payload.version || inputs.version }}
+      CORE_COMMIT: ${{ github.event.client_payload.core_commit || inputs.core-commit }}
+      ACTION_COMMIT: ${{ github.event.client_payload.action_commit || inputs.action-commit }}
+      SOURCE_SHA256: ${{ github.event.client_payload.source_sha256 || inputs.source-sha256 }}
+    steps:
+      - name: Validate coordinated release request
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          [[ "$CORE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$ACTION_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$SOURCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+
+      - name: Check out exact MCP release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve immutable MCP release source
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          error_file=$(mktemp)
+          set +e
+          git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_VERSION" \
+            >"$RUNNER_TEMP/mcp-tag-ref" 2>"$error_file"
+          status=$?
+          set -e
+          case "$status" in
+            0)
+              git fetch origin "refs/tags/$RELEASE_VERSION:refs/tags/$RELEASE_VERSION"
+              release_commit=$(git rev-parse "$RELEASE_VERSION^{commit}")
+              git checkout --detach "$release_commit"
+              exists=true
+              ;;
+            2)
+              release_commit=$(git rev-parse HEAD)
+              [[ "$release_commit" == "$GITHUB_SHA" ]]
+              exists=false
+              ;;
+            *)
+              cat "$error_file" >&2
+              exit "$status"
+              ;;
+          esac
+          printf 'commit=%s\n' "$release_commit" >>"$GITHUB_OUTPUT"
+          printf 'exists=%s\n' "$exists" >>"$GITHUB_OUTPUT"
+
+      - name: Check out exact graph2agent core tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: graph2agent/graph2agent
+          ref: ${{ env.RELEASE_VERSION }}
+          path: .deps/graph2agent
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check out exact graph2agent Action tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: graph2agent/github-action
+          ref: ${{ env.RELEASE_VERSION }}
+          path: .deps/github-action
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify immutable release identities and source archive
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=${RELEASE_VERSION#v}
+          [[ $(jq -r .version release.json) == "$RELEASE_VERSION" ]]
+          [[ $(jq -r .core_commit release.json) == "$CORE_COMMIT" ]]
+          [[ $(jq -r .action_commit release.json) == "$ACTION_COMMIT" ]]
+          [[ $(jq -r .core_source_sha256 release.json) == "$SOURCE_SHA256" ]]
+          [[ $(git rev-parse HEAD) == "${{ steps.source.outputs.commit }}" ]]
+          [[ $(git -C .deps/graph2agent rev-parse HEAD) == "$CORE_COMMIT" ]]
+          [[ $(git -C .deps/github-action rev-parse HEAD) == "$ACTION_COMMIT" ]]
+          [[ $(sed -n 's/^[[:space:]]*Version = "\([^"]*\)"/\1/p' .deps/graph2agent/graph2agent.go) == "$version" ]]
+          action_default=$(awk '/^  version:/{found=1; next} found && /^    default:/{print $2; exit}' .deps/github-action/action.yml)
+          [[ "$action_default" == "$RELEASE_VERSION" ]]
+          [[ $(node -p 'require("./npm/package.json").version') == "$version" ]]
+          grep -Fq "github.com/graph2agent/graph2agent v${version}" go.mod
+          grep -Fq "## [${version}]" CHANGELOG.md
+          grep -Fq "GRAPH2AGENT_CORE_COMMIT: $CORE_COMMIT" .github/workflows/ci.yml
+          grep -Fq "GRAPH2AGENT_CORE_COMMIT: $CORE_COMMIT" .github/workflows/release-verify.yml
+          for repository in graph2agent/graph2agent graph2agent/github-action; do
+            identity=$(gh release view "$RELEASE_VERSION" --repo "$repository" --json isDraft,isPrerelease)
+            [[ $(jq -r .isDraft <<<"$identity") == false ]]
+            [[ $(jq -r .isPrerelease <<<"$identity") == false ]]
+          done
+          download="$RUNNER_TEMP/core-source"
+          mkdir -p "$download"
+          gh release download "$RELEASE_VERSION" --repo graph2agent/graph2agent \
+            --pattern "graph2agent_${version}_source.tar.gz" --dir "$download"
+          archive="$download/graph2agent_${version}_source.tar.gz"
+          [[ $(sha256sum "$archive" | awk '{print $1}') == "$SOURCE_SHA256" ]]
+
+      - name: Assert checkout credentials are absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          for repository in . .deps/graph2agent .deps/github-action; do
+            if git -C "$repository" config --local --name-only --get-regexp \
+              '^(credential\.|http\..*\.extraheader$|core\.sshCommand$)' >/dev/null 2>&1; then
+              printf 'checkout credentials persisted in %s\n' "$repository" >&2
+              exit 2
+            fi
+          done
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Set up Node without a registry token
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+
+      - name: Pin npm trusted-publishing client and reject stored tokens
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global --ignore-scripts --no-audit --no-fund npm@11.5.1
+          [[ $(npm --version) == 11.5.1 ]]
+          [[ $(npm config get registry) == https://registry.npmjs.org/ ]]
+          for name in NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG_TOKEN; do
+            [[ -z ${!name:-} ]] || {
+              printf '%s must not be set; this release uses npm trusted publishing\n' "$name" >&2
+              exit 2
+            }
+          done
+
+      - name: Create ephemeral exact-core workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e go.work
+          test ! -e go.work.sum
+          go work init .
+          go work edit -replace="github.com/graph2agent/graph2agent@${RELEASE_VERSION}=./.deps/graph2agent"
+
+      - name: Verify core, MCP, race, npm, and protocol contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOWORK=off make -C .deps/graph2agent check race
+          make check test-race
+          GOWORK=off go -C .deps/graph2agent build -trimpath \
+            -o "$RUNNER_TEMP/graph2agent" ./cmd/graph2agent
+          [[ $("$RUNNER_TEMP/graph2agent" version --json | jq -r .version) == "${RELEASE_VERSION#v}" ]]
+
+      - name: Build isolated snapshot artifacts without publishing
+        uses: goreleaser/goreleaser-action@4c6ab561adb47e50c45ef534e2155934e91c40c1 # v7.2.0
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --snapshot --clean --skip=publish
+
+      - name: Pack and exercise snapshot npm bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          make npm-pack
+          [[ $(wc -l <dist/checksums.txt) -eq 6 ]]
+          [[ $(wc -l <dist/npm-packages/npm-checksums.txt) -eq 7 ]]
+          (cd dist && sha256sum --check checksums.txt)
+          (cd dist/npm-packages && sha256sum --check npm-checksums.txt)
+          smoke=$(mktemp -d "${RUNNER_TEMP%/}/graph2agent-npm-snapshot.XXXXXX")
+          root_tarball=$(find dist/npm-packages -maxdepth 1 -type f -name 'graph2agent-mcp-[0-9]*.tgz' -print -quit)
+          platform_tarball=$(find dist/npm-packages -maxdepth 1 -type f -name 'graph2agent-mcp-linux-x64-*.tgz' -print -quit)
+          [[ -n "$root_tarball" && -n "$platform_tarball" ]]
+          snapshot=$(node -p 'require("./dist/metadata.json").version')
+          (
+            cd "$smoke"
+            npm init --yes >/dev/null
+            npm install --offline --ignore-scripts --omit=optional --no-audit --no-fund \
+              "$GITHUB_WORKSPACE/$root_tarball" "$GITHUB_WORKSPACE/$platform_tarball"
+            GRAPH2AGENT_EXPECT_SERVER_VERSION=$snapshot \
+            GRAPH2AGENT_EXPECT_CORE_VERSION=${RELEASE_VERSION#v} \
+              node "$GITHUB_WORKSPACE/npm/test/release-e2e.mjs" \
+                "$smoke/node_modules/.bin/graph2agent-mcp" "$RUNNER_TEMP/graph2agent"
+          )
+
+      - name: Prepare exact local tag
+        id: tag-state
+        shell: bash
+        env:
+          REMOTE_TAG_EXISTS: ${{ steps.source.outputs.exists }}
+        run: |
+          set -euo pipefail
+          release_commit=$(git rev-parse HEAD)
+          if [[ "$REMOTE_TAG_EXISTS" == true ]]; then
+            [[ $(git rev-parse "$RELEASE_VERSION^{commit}") == "$release_commit" ]]
+          elif git show-ref --verify --quiet "refs/tags/$RELEASE_VERSION"; then
+            [[ $(git rev-parse "$RELEASE_VERSION^{commit}") == "$release_commit" ]]
+          else
+            git -c user.name=github-actions -c 'user.email=41898282+github-actions[bot]@users.noreply.github.com' \
+              tag --annotate "$RELEASE_VERSION" --message "graph2agent MCP $RELEASE_VERSION"
+          fi
+          printf 'exists=%s\n' "$REMOTE_TAG_EXISTS" >>"$GITHUB_OUTPUT"
+
+      - name: Build exact release artifacts without publishing
+        uses: goreleaser/goreleaser-action@4c6ab561adb47e50c45ef534e2155934e91c40c1 # v7.2.0
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean --skip=publish
+
+      - name: Pack, verify, and exercise exact release bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=${RELEASE_VERSION#v}
+          [[ $(node -p 'require("./dist/metadata.json").version') == "$version" ]]
+          make npm-pack-release
+          [[ $(wc -l <dist/checksums.txt) -eq 6 ]]
+          [[ $(wc -l <dist/npm-packages/npm-checksums.txt) -eq 7 ]]
+          (cd dist && sha256sum --check checksums.txt)
+          (cd dist/npm-packages && sha256sum --check npm-checksums.txt)
+          [[ $(find dist/npm-packages -maxdepth 1 -type f -name '*.tgz' | wc -l) -eq 7 ]]
+          smoke=$(mktemp -d "${RUNNER_TEMP%/}/graph2agent-npm-release.XXXXXX")
+          (
+            cd "$smoke"
+            npm init --yes >/dev/null
+            npm install --offline --ignore-scripts --omit=optional --no-audit --no-fund \
+              "$GITHUB_WORKSPACE/dist/npm-packages/graph2agent-mcp-${version}.tgz" \
+              "$GITHUB_WORKSPACE/dist/npm-packages/graph2agent-mcp-linux-x64-${version}.tgz"
+            GRAPH2AGENT_EXPECT_SERVER_VERSION=$version \
+            GRAPH2AGENT_EXPECT_CORE_VERSION=$version \
+              node "$GITHUB_WORKSPACE/npm/test/release-e2e.mjs" \
+                "$smoke/node_modules/.bin/graph2agent-mcp" "$RUNNER_TEMP/graph2agent"
+          )
+
+      - name: Create or verify immutable MCP tag and release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REMOTE_TAG_EXISTS: ${{ steps.tag-state.outputs.exists }}
+        run: |
+          set -euo pipefail
+          release_commit=$(git rev-parse HEAD)
+          if [[ "$REMOTE_TAG_EXISTS" == false ]]; then
+            error_file=$(mktemp)
+            set +e
+            gh api --method POST "/repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$RELEASE_VERSION" -f sha="$release_commit" \
+              >"$RUNNER_TEMP/tag-create.json" 2>"$error_file"
+            status=$?
+            set -e
+            if [[ "$status" -ne 0 ]]; then
+              cat "$error_file" >&2
+              git ls-remote --exit-code --tags origin "refs/tags/$RELEASE_VERSION" >/dev/null
+            fi
+          fi
+          git fetch --force origin "refs/tags/$RELEASE_VERSION:refs/tags/$RELEASE_VERSION"
+          [[ $(git rev-parse "$RELEASE_VERSION^{commit}") == "$release_commit" ]]
+
+          release_json="$RUNNER_TEMP/mcp-release.json"
+          error_file=$(mktemp)
+          set +e
+          gh api "/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_VERSION" \
+            >"$release_json" 2>"$error_file"
+          status=$?
+          set -e
+          if [[ "$status" -eq 0 ]]; then
+            [[ $(jq -r .prerelease "$release_json") == false ]]
+          elif grep -Fq 'HTTP 404' "$error_file"; then
+            gh release create "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag \
+              --draft --title "graph2agent MCP $RELEASE_VERSION" \
+              --notes "Coordinated graph2agent MCP $RELEASE_VERSION release."
+          else
+            cat "$error_file" >&2
+            exit "$status"
+          fi
+
+      - name: Create or verify immutable GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t artifacts < <(
+            {
+              find dist -maxdepth 1 -type f \( -name 'graph2agent-mcp_*.tar.gz' -o -name 'graph2agent-mcp_*.zip' -o -name checksums.txt \) -print
+              find dist/npm-packages -maxdepth 1 -type f \( -name '*.tgz' -o -name npm-checksums.txt \) -print
+            } | LC_ALL=C sort
+          )
+          [[ ${#artifacts[@]} -eq 15 ]]
+          expected=$(mktemp)
+          published=$(mktemp)
+          printf '%s\n' "${artifacts[@]##*/}" | LC_ALL=C sort >"$expected"
+          gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+            --json assets --jq '.assets[].name' | LC_ALL=C sort >"$published"
+          extras=$(comm -13 "$expected" "$published")
+          [[ -z "$extras" ]] || {
+            printf 'release contains unexpected immutable assets:\n%s\n' "$extras" >&2
+            exit 1
+          }
+          verification=$(mktemp -d "${RUNNER_TEMP%/}/graph2agent-mcp-assets.XXXXXX")
+          for artifact in "${artifacts[@]}"; do
+            name=${artifact##*/}
+            if grep -Fxq "$name" "$published"; then
+              gh release download "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+                --pattern "$name" --dir "$verification"
+              cmp --silent "$artifact" "$verification/$name" || {
+                printf 'release asset %s exists with different bytes\n' "$name" >&2
+                exit 1
+              }
+              printf 'verified existing release asset %s\n' "$name"
+            else
+              gh release upload "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" "$artifact"
+            fi
+          done
+
+      - name: Attest native and npm release artifacts
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        with:
+          subject-path: |
+            dist/graph2agent-mcp_*.tar.gz
+            dist/graph2agent-mcp_*.zip
+            dist/checksums.txt
+            dist/npm-packages/*.tgz
+            dist/npm-packages/npm-checksums.txt
+
+      - name: Publish or verify npm packages with provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG_TOKEN; do
+            [[ -z ${!name:-} ]] || {
+              printf '%s must not be set; this release uses npm trusted publishing\n' "$name" >&2
+              exit 2
+            }
+          done
+          version=${RELEASE_VERSION#v}
+          publish_or_verify() {
+            local package_name=$1
+            local tarball=$2
+            local local_sha published_sha status error_file
+            local_sha=$(sha1sum "$tarball" | awk '{print $1}')
+            error_file=$(mktemp)
+            set +e
+            published_sha=$(npm view "${package_name}@${version}" dist.shasum 2>"$error_file")
+            status=$?
+            set -e
+            if [[ "$status" -eq 0 ]]; then
+              published_sha=${published_sha//$'\n'/}
+              [[ "$published_sha" == "$local_sha" ]] || {
+                printf '%s@%s already exists with a different tarball\n' "$package_name" "$version" >&2
+                exit 1
+              }
+              printf '%s@%s already matches the release tarball\n' "$package_name" "$version"
+            elif grep -Eq 'E404|404 Not Found' "$error_file"; then
+              npm publish "$tarball" --access public --provenance
+            else
+              cat "$error_file" >&2
+              exit "$status"
+            fi
+          }
+          for package_name in \
+            graph2agent-mcp-darwin-arm64 \
+            graph2agent-mcp-darwin-x64 \
+            graph2agent-mcp-linux-arm64 \
+            graph2agent-mcp-linux-x64; do
+            publish_or_verify "$package_name" \
+              "dist/npm-packages/${package_name}-${version}.tgz"
+          done
+          publish_or_verify graph2agent-mcp \
+            "dist/npm-packages/graph2agent-mcp-${version}.tgz"
+
+      - name: Publish or verify the complete MCP GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          identity=$(gh release view "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease)
+          [[ $(jq -r .isPrerelease <<<"$identity") == false ]]
+          if [[ $(jq -r .isDraft <<<"$identity") == true ]]; then
+            gh release edit "$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" --draft=false
+          fi
+
+      - name: Create short-lived cross-repository token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3
+        with:
+          client-id: ${{ vars.GRAPH2AGENT_RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GRAPH2AGENT_RELEASE_APP_PRIVATE_KEY }}
+          owner: graph2agent
+          repositories: homebrew-tap
+          permission-contents: write
+
+      - name: Continue the release train with Homebrew
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST /repos/graph2agent/homebrew-tap/dispatches \
+            -f event_type=graph2agent-release \
+            -f "client_payload[version]=$RELEASE_VERSION" \
+            -f "client_payload[core_commit]=$CORE_COMMIT" \
+            -f "client_payload[action_commit]=$ACTION_COMMIT" \
+            -f "client_payload[source_sha256]=$SOURCE_SHA256"

@@ -1,6 +1,6 @@
 {
   "name": "graph2agent-mcp",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "Plug-and-play MCP server that makes Mermaid diagrams explicit for coding agents",
   "license": "Apache-2.0",
   "repository": {
@@ -29,12 +29,12 @@
   ],
   "mcpName": "io.github.graph2agent/mcp",
   "optionalDependencies": {
-    "graph2agent-mcp-darwin-arm64": "0.2.0",
-    "graph2agent-mcp-darwin-x64": "0.2.0",
-    "graph2agent-mcp-linux-arm64": "0.2.0",
-    "graph2agent-mcp-linux-x64": "0.2.0",
-    "graph2agent-mcp-win32-arm64": "0.2.0",
-    "graph2agent-mcp-win32-x64": "0.2.0"
+    "graph2agent-mcp-darwin-arm64": "0.4.0",
+    "graph2agent-mcp-darwin-x64": "0.4.0",
+    "graph2agent-mcp-linux-arm64": "0.4.0",
+    "graph2agent-mcp-linux-x64": "0.4.0",
+    "graph2agent-mcp-win32-arm64": "0.4.0",
+    "graph2agent-mcp-win32-x64": "0.4.0"
   },
   "publishConfig": {
     "access": "public"

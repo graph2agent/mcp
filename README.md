@@ -5,7 +5,7 @@
 # Give any MCP coding agent the graph—in one command
 
 ```sh
-npx -y graph2agent-mcp@0.2.0
+npx -y graph2agent-mcp@0.4.0
 ```
 
 `graph2agent-mcp` is a stdio Model Context Protocol server for the deterministic
@@ -26,7 +26,7 @@ profile, or Mermaid construct.
 > **Live on npm for macOS and Linux.** With Node.js 22 or newer, the pinned
 > command above installs the matching arm64 or x64 static binary without
 > lifecycle scripts or a Go toolchain. Windows binaries are live in the
-> [v0.2.0 GitHub Release](https://github.com/graph2agent/mcp/releases/tag/v0.2.0);
+> [v0.4.0 GitHub Release](https://github.com/graph2agent/mcp/releases/tag/v0.4.0);
 > one-command npm activation on Windows is pending npm review.
 
 The server performs no network requests, file writes, Mermaid execution, or HTML
@@ -66,13 +66,13 @@ Pin the version in persistent configuration:
 ### Codex
 
 ```sh
-codex mcp add graph2agent -- npx -y graph2agent-mcp@0.2.0
+codex mcp add graph2agent -- npx -y graph2agent-mcp@0.4.0
 ```
 
 ### Claude Code
 
 ```sh
-claude mcp add --scope user --transport stdio graph2agent -- npx -y graph2agent-mcp@0.2.0
+claude mcp add --scope user --transport stdio graph2agent -- npx -y graph2agent-mcp@0.4.0
 ```
 
 On native Windows, use the direct-binary configuration below until npm
@@ -81,7 +81,7 @@ Linux, first use needs npm access. For a durable local installation that works
 offline afterward:
 
 ```sh
-npm install --global graph2agent-mcp@0.2.0
+npm install --global graph2agent-mcp@0.4.0
 codex mcp add graph2agent -- graph2agent-mcp
 ```
 
@@ -105,7 +105,7 @@ instead of changing `go.mod`:
 
 ```sh
 go work init .
-go work edit -replace=github.com/graph2agent/graph2agent@v0.2.0=../graph2agent
+go work edit -replace=github.com/graph2agent/graph2agent@v0.4.0=../graph2agent
 make check test-race
 ```
 
@@ -153,7 +153,7 @@ file locations and approval controls are client-specific.
 ## CI and releases
 
 CI checks formatting, vetting, tests, race tests, and a production build. It
-checks out the public `graph2agent` core at `v0.2.0` without a deploy key or
+checks out the public `graph2agent` core at `v0.4.0` without a deploy key or
 repository secret, asserts that the tag resolves to the expected immutable
 commit, and wires it through an ephemeral, ignored Go workspace replacement.
 The published module remains pinned in `go.mod` without a `replace` directive,
@@ -165,6 +165,29 @@ The npm assembler places those same binaries into six exact-version platform
 packages, generates a checksum contract, audits file allowlists, packs all seven
 packages, installs the local Linux package with lifecycle scripts disabled, and
 performs a real MCP initialize/tools/list/describe_mermaid smoke test.
+
+Publishing a prepared version is coordinated from the matching GitHub Release
+in `graph2agent/graph2agent`. The MCP release workflow receives the exact core
+and GitHub Action commits plus the core source SHA-256, verifies their immutable
+tags and the checked-in `release.json` identity, and runs the Go, race, snapshot
+package, packed-launcher, and five-family CLI-to-MCP parity gates before making
+any external change. It then creates or verifies this repository's tag and
+draft GitHub Release, uploads and attests the native/npm artifacts, publishes the live
+macOS and Linux platform packages before the umbrella npm package, and hands the
+same release identity to Homebrew after publishing the complete GitHub Release.
+Retries rebuild the immutable tagged source and accept an existing asset or npm
+version only when its bytes or registry tarball SHA-1 exactly match locally.
+
+npm publication uses trusted-publisher OIDC and provenance rather than a stored
+npm token. Configure trusted publishers for `graph2agent-mcp` and its
+`darwin-arm64`, `darwin-x64`, `linux-arm64`, and `linux-x64` packages with owner
+`graph2agent`, repository `mcp`, workflow `release.yml`, and no environment.
+Windows native archives and npm-form tarballs remain available in the GitHub
+Release until npm grants publication access to the Windows package names.
+Cross-repository Homebrew handoff uses the short-lived GitHub App credentials
+`GRAPH2AGENT_RELEASE_APP_CLIENT_ID` and
+`GRAPH2AGENT_RELEASE_APP_PRIVATE_KEY`. Manual dispatch with the same immutable
+inputs recovers a transient failure without changing the release identity.
 
 ## License
 

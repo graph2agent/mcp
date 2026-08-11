@@ -45,8 +45,10 @@ const (
 }`
 )
 
-// Version is replaced by release builds through -ldflags.
-var Version = "dev"
+// Version defaults to the linked graph2agent compiler version and is replaced
+// by release and snapshot builds through -ldflags. Tagged MCP releases use the
+// same semantic version as the core compiler.
+var Version = graph2agent.Version
 
 // DescribeInput is the input contract for describe_mermaid.
 type DescribeInput struct {

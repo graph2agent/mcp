@@ -5,7 +5,7 @@
 # Give any MCP coding agent the graph—in one command
 
 ```sh
-npx -y graph2agent-mcp@0.2.0
+npx -y graph2agent-mcp@0.4.0
 ```
 
 `graph2agent-mcp` turns supported Mermaid into deterministic, explicit context
@@ -26,20 +26,20 @@ profile, or Mermaid construct.
 
 > **Live on npm for macOS and Linux.** With Node.js 22 or newer, this package
 > installs the matching arm64 or x64 binary. Windows binaries are live in the
-> [v0.2.0 GitHub Release](https://github.com/graph2agent/mcp/releases/tag/v0.2.0);
+> [v0.4.0 GitHub Release](https://github.com/graph2agent/mcp/releases/tag/v0.4.0);
 > one-command npm activation on Windows is pending npm review.
 
 Persistent client configurations should pin the version:
 
 ```sh
-codex mcp add graph2agent -- npx -y graph2agent-mcp@0.2.0
+codex mcp add graph2agent -- npx -y graph2agent-mcp@0.4.0
 ```
 
 On macOS and Linux, first use needs npm access. For a durable local/offline
 installation afterward:
 
 ```sh
-npm install --global graph2agent-mcp@0.2.0
+npm install --global graph2agent-mcp@0.4.0
 codex mcp add graph2agent -- graph2agent-mcp
 ```
 

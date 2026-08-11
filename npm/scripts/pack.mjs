@@ -67,7 +67,7 @@ for (const directory of packageDirectories) {
 
 checksums.sort((left, right) => left.filename.localeCompare(right.filename));
 await writeFile(
-  path.join(output, "checksums.txt"),
+  path.join(output, "npm-checksums.txt"),
   `${checksums.map(({ filename, sha256 }) => `${sha256}  ${filename}`).join("\n")}\n`,
 );
 await rm(npmCache, { recursive: true, force: true });

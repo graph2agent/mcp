@@ -77,6 +77,8 @@ test("Go, workflow, npm, and linker release versions stay aligned", async () => 
     assert.match(workflow, new RegExp(`GRAPH2AGENT_CORE_TAG: v${root.version.replaceAll(".", "\\.")}`));
     assert.match(workflow, /GRAPH2AGENT_CORE_COMMIT: [0-9a-f]{40}/);
     assert.match(workflow, new RegExp(`GRAPH2AGENT_CORE_COMMIT: ${releaseIdentity.core_commit}`));
+    assert.match(workflow, /ref: \$\{\{ env\.GRAPH2AGENT_CORE_COMMIT \}\}/);
+    assert.doesNotMatch(workflow, /ref: \$\{\{ env\.GRAPH2AGENT_CORE_TAG \}\}/);
   }
   assert.match(release, /types: \[graph2agent-release\]/);
   assert.match(release, /repository: graph2agent\/graph2agent/);

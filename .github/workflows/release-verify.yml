@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: graph2agent/graph2agent
-          ref: ${{ env.GRAPH2AGENT_CORE_TAG }}
+          ref: ${{ env.GRAPH2AGENT_CORE_COMMIT }}
           path: .deps/graph2agent
           persist-credentials: false
       - name: Verify pinned graph2agent core revision
@@ -45,7 +45,7 @@ jobs:
           }
           actual=$(git -C .deps/graph2agent rev-parse HEAD)
           if [[ "$actual" != "$expected" ]]; then
-            printf 'graph2agent %s resolved to %s; expected %s\n' "$GRAPH2AGENT_CORE_TAG" "$actual" "$expected" >&2
+            printf 'pinned graph2agent core resolved to %s; expected %s\n' "$actual" "$expected" >&2
             exit 1
           fi
       - name: Assert checkout credentials are absent
